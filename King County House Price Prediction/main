@@ -1,0 +1,195 @@
+
+import warnings 
+warnings.filterwarnings("ignore", category=UserWarning) # suppress seaborn future warnings
+
+import numpy as np 
+import pandas as pd 
+import matplotlib.pyplot as plt 
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.pipeline import Pipeline
+
+# ---------- Style ----------
+sns.set(style="whitegrid") # whitegrid, darkgrid, white, dark, ticks
+plt.rcParams.update({'figure.figsize': (7, 4), 'figure.dpi': 140}) # default fig size and dpi
+pd.set_option("display.width", 120) # width of the display in characters
+pd.set_option("display.max_columns", 50) # max columns to display
+
+# ---------- Config ----------
+SEED = 1 # random seed for reproducibility
+DATA_URL = ("https://s3-api.us-geo.objectstorage.softlayer.net/cf-courses-data/"
+            "CognitiveClass/DA0101EN/coursera/project/kc_house_data_NaN.csv") # with NaNs
+LOCAL   = "kc_house_data_NaN.csv" # local path if you have downloaded
+
+# ---------- Pretty printers ----------
+def banner(title: str, ch: str="="): # big header
+    width = 70
+    line = ch * width
+    print("\n" + line)
+    print(title.center(width))   # <— centers the text
+    print(line)
+
+def subhead(title: str): # smaller header
+    print(f"\n[ {title} ]".upper())
+
+def align_dict(d: dict, key_w: int = 26, val_fmt: str = "{}"): # align keys
+    for k, v in d.items():
+        print(f"{k:<{key_w}} : {val_fmt.format(v)}")
+
+def print_table(df: pd.DataFrame, max_rows: int = 12): 
+    # neat table without the extra dtype footer
+    print(df.head(max_rows).to_string(index=True))
+
+# ---------- Core steps ----------
+def load_data(url=DATA_URL, local=LOCAL) -> pd.DataFrame: # try local first
+    src = "Local CSV"
+    try:
+        df = pd.read_csv(local)
+    except Exception:
+        df = pd.read_csv(url)
+        src = "URL"
+    banner("DATA LOADED")
+    align_dict({
+        "Rows x Cols": f"{df.shape[0]:,} x {df.shape[1]}",
+        "Source"     : src
+    })
+    return df
+
+def clean(df: pd.DataFrame) -> pd.DataFrame: # drop id, mean impute bedrooms & bathrooms
+    df = df.copy()
+    # report missing before
+    miss_before = {
+        "bedrooms NaNs": int(df["bedrooms"].isna().sum()) if "bedrooms" in df else 0,
+        "bathrooms NaNs": int(df["bathrooms"].isna().sum()) if "bathrooms" in df else 0
+    }
+    # drop id, Unnamed: 0 if present (case-insensitive)
+    for c in ["id", "Unnamed: 0", "unnamed: 0"]:
+        if c in df.columns:
+            df.drop(columns=c, inplace=True)
+
+    # mean impute bedrooms & bathrooms
+    for c in ["bedrooms", "bathrooms"]:
+        if c in df.columns:
+            df[c] = df[c].fillna(df[c].mean())
+
+    miss_after = {
+        "bedrooms NaNs": int(df["bedrooms"].isna().sum()) if "bedrooms" in df else 0,
+        "bathrooms NaNs": int(df["bathrooms"].isna().sum()) if "bathrooms" in df else 0
+    }
+
+    banner("CLEANING SUMMARY")
+    print("Missing values (before → after)")
+    print(f"  bedrooms : {miss_before['bedrooms NaNs']} → {miss_after['bedrooms NaNs']}")
+    print(f"  bathrooms: {miss_before['bathrooms NaNs']} → {miss_after['bathrooms NaNs']}")
+    return df
+
+# ---------- EDA ----------
+def show_boxplot_price_vs_waterfront(df: pd.DataFrame): # waterfront
+    subhead("EDA • Price vs Waterfront")
+    sns.boxplot(data=df, x="waterfront", y="price")
+    plt.title("Price vs Waterfront (0 = No, 1 = Yes)")
+    plt.xlabel("waterfront")
+    plt.ylabel("price")
+    plt.tight_layout()
+    plt.show()
+
+def show_reg_price_vs_sqft_above(df: pd.DataFrame): # sqft_above
+    subhead("EDA • Price vs sqft_above")
+    sns.regplot(data=df, x="sqft_above", y="price",
+                scatter_kws={"s": 12, "alpha": 0.5}, line_kws={"lw": 2})
+    plt.title("Price vs sqft_above")
+    plt.tight_layout()
+    plt.show()
+
+def print_top_correlations(df: pd.DataFrame, target: str = "price", k: int = 10): # top k correlations with target
+    subhead(f"EDA • Top {k} correlations with {target}")
+    num = df.select_dtypes(include=[np.number])
+    corr = num.corr()[target].sort_values(ascending=False).head(k)
+    tab = pd.DataFrame({"feature": corr.index, "corr_with_price": corr.values})
+    print_table(tab)
+
+# ---------- Models ----------
+def model_baseline_linear(df: pd.DataFrame): # single feature: sqft_living  
+    subhead("Model • Baseline Linear Regression (feature: sqft_living)")
+    X = df[["sqft_living"]]
+    y = df["price"]
+    lr = LinearRegression().fit(X, y)
+    r2 = lr.score(X, y)
+    align_dict({
+        "R²": f"{r2:.4f}",
+        "Intercept": f"{lr.intercept_:.2f}",
+        "Coef(sqft_living)": f"{lr.coef_[0]:.2f}"
+    })
+    return r2
+
+def model_multiple_linear(df: pd.DataFrame): # multi-feature linear regression
+    subhead("Model • Multi‑feature Linear Regression")
+    feats = ["sqft_living","sqft_above","sqft_basement","bathrooms",
+             "bedrooms","grade","floors","view","waterfront","lat","sqft_living15"]
+    feats = [f for f in feats if f in df.columns]
+    X, y = df[feats], df["price"]
+    lr = LinearRegression().fit(X, y)
+    r2 = lr.score(X, y)
+    align_dict({
+        "n_features": len(feats),
+        "R²"       : f"{r2:.4f}"
+    })
+    # show top 5 absolute coefficients
+    coefs = pd.Series(lr.coef_, index=feats).abs().sort_values(ascending=False).head(5)
+    print("\nTop 5 |coef| features:")
+    print_table(pd.DataFrame({"feature": coefs.index, "abs_coef": coefs.values}))
+    return r2, feats
+
+def model_poly2_ridge_train_test(df: pd.DataFrame, features, degree: int = 2, alpha: float = 0.1,
+                                 test_size: float = 0.15, seed: int = SEED): # poly degree 2 + ridge with train/test split
+    subhead(f"Model • Polynomial(deg={degree}) + Ridge(alpha={alpha}) with Train/Test split")
+    X, y = df[features], df["price"]
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=test_size, random_state=seed)
+    pipe = Pipeline([
+        ("scale", StandardScaler()),
+        ("poly", PolynomialFeatures(degree=degree, include_bias=False)),
+        ("ridge", Ridge(alpha=alpha, random_state=seed))
+    ])
+    pipe.fit(Xtr, ytr)
+    r2_tr, r2_te = pipe.score(Xtr, ytr), pipe.score(Xte, yte)
+    align_dict({
+        "Train size / Test size": f"{len(Xtr):,} / {len(Xte):,}  (test={test_size:.2f})",
+        "Train R²"              : f"{r2_tr:.4f}",
+        "Test  R²"              : f"{r2_te:.4f}",
+    }) 
+    return r2_tr, r2_te
+
+# ---------- Main ----------
+def main(): # run all steps
+    df = clean(load_data()) # load & clean
+
+    banner("SCHEMA OVERVIEW")
+    print_table(pd.DataFrame(df.dtypes, columns=["dtype"]).T)
+    print("\nDescribe (first 8 rows transposed):") 
+    print_table(df.describe().round(3).T.head(8)) 
+
+    # Quick EDA (plots will pop up)
+    show_boxplot_price_vs_waterfront(df) # waterfront
+    show_reg_price_vs_sqft_above(df) # sqft_above
+    print_top_correlations(df) # top correlations with price
+
+    # Models
+    r2_base = model_baseline_linear(df) # baseline
+    r2_multi, feats = model_multiple_linear(df) # multi-feature
+    r2_poly_tr, r2_poly_te = model_poly2_ridge_train_test(df, feats) # poly2 + ridge
+
+    # Final summary
+    banner("FINAL SUMMARY")
+    align_dict({
+        "Baseline LinearRegression (sqft_living)   R²": f"{r2_base:.4f}",
+        f"Multi‑feature LinearRegression ({len(feats)} feats) R²": f"{r2_multi:.4f}",
+        "Poly (deg=2) + Ridge (α=0.1) — Train R²" : f"{r2_poly_tr:.4f}",
+        "Poly (deg=2) + Ridge (α=0.1) — Test  R²" : f"{r2_poly_te:.4f}",
+    }) # final results
+    print("\nDone ✔")
+
+if __name__ == "__main__": 
+    main() 
