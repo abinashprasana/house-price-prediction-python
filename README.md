@@ -40,10 +40,12 @@ It includes **data cleaning, exploratory data analysis (EDA), and multiple regre
 
 ## 📂 File Structure
 ```
-House_Price_Prediction/
-│── house_price_prediction.py   # Main script with all functions
-│── kc_house_data_NaN.csv       # Dataset (with NaNs)
-│── README.md                   # Documentation
+house-price-prediction-python/
+│
+├── King County House Price Prediction/
+│   ├── main.py # Main program (data loading, EDA, modeling)
+│   └── kc_house_data_NaN.csv # Dataset (with NaN values to be cleaned)
+├── README.md # Project documentation
 ```
 
 ---
