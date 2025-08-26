@@ -72,7 +72,7 @@ house-price-prediction-python/
 
 3. Run the program:
    ```bash
-   python house_price_prediction.py
+   python main.py
    ```
 
 ---
