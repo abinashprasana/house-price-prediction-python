@@ -43,9 +43,17 @@ It includes **data cleaning, exploratory data analysis (EDA), and multiple regre
 house-price-prediction-python/
 │
 ├── King County House Price Prediction/
-│   ├── main.py # Main program (data loading, EDA, modeling)
-│   └── kc_house_data_NaN.csv # Dataset (with NaN values to be cleaned)
-├── README.md # Project documentation
+│ ├── main.py # Main Python script (data cleaning, EDA, modeling)
+│ └── kc_house_data_NaN.csv # Dataset (with missing values handled)
+│
+├── assets/
+│ ├── model_summary_part1.png # Console output summary (part 1)
+│ ├── eda_price_vs_waterfront.png # Boxplot: Price vs Waterfront
+│ ├── eda_price_vs_sqft_above.png # Regression plot: Price vs Sqft Above
+│ ├── model_summary_part2.png # Console output summary (part 2)
+│ └── demo_video.mp4 # Demo video of project running
+│
+└── README.md
 ```
 
 ---
@@ -69,31 +77,28 @@ house-price-prediction-python/
 
 ---
 
-## 📊 Example Output
-<details>
-<summary>Click to view sample output</summary>
+### 📊 Example Outputs
 
-```bash
-==============================
-     DATA LOADED
-==============================
-Rows x Cols               : 21,613 x 21
-Source                    : Local CSV
+#### Model Training & Results (Part 1)
+![Model Summary Part 1](assets/model_summary_part1.png)
 
-[ EDA • Top correlations with price ]
-feature             corr_with_price
-sqft_living         0.70
-grade               0.67
-sqft_above          0.60
+#### Price vs Waterfront
+![Price vs Waterfront](assets/eda_price_vs_waterfront.png)
 
-[ MODEL SUMMARY ]
-Baseline LinearRegression (sqft_living)   R²: 0.49
-Multi-feature LinearRegression (11 feats) R²: 0.65
-Poly (deg=2) + Ridge (α=0.1) — Test R²   : 0.81
+#### Price vs sqft_above
+![Price vs sqft_above](assets/eda_price_vs_sqft_above.png)
 
-Done ✔
-```
-</details>
+#### Model Training & Results (Part 2)
+![Model Summary Part 2](assets/model_summary_part2.png)
+
+
+---
+
+---
+
+### 🎥 Demo video
+
+https://github.com/user-attachments/assets/70f718b8-8986-4141-92ad-e0a0b9e889dc
 
 ---
 
